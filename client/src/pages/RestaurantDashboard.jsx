@@ -13,6 +13,7 @@ export default function RestaurantDashboard() {
   const [selections, setSelections] = useState([]);
   const [filter, setFilter] = useState('');
   const [activeProduct, setActiveProduct] = useState(null);
+  const [activeProductDetail, setActiveProductDetail] = useState(null);
   const [approvedClaims, setApprovedClaims] = useState([]);
   const [error, setError] = useState('');
 
@@ -39,10 +40,17 @@ export default function RestaurantDashboard() {
     );
   }, [catalog, filter]);
 
-  const openModal = (product) => {
+  const openModal = async (product) => {
     setActiveProduct(product);
+    setActiveProductDetail(null);
     const existing = selections.find((selection) => selection.product_id === product.id);
     setApprovedClaims(existing?.approved_claims || []);
+    try {
+      const detailData = await apiFetch(`/api/products/${product.id}`);
+      setActiveProductDetail(detailData.product);
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   const toggleClaim = (claimId) => {
@@ -64,6 +72,7 @@ export default function RestaurantDashboard() {
         })
       });
       setActiveProduct(null);
+      setActiveProductDetail(null);
       await loadData();
     } catch (err) {
       setError(err.message);
@@ -157,7 +166,47 @@ export default function RestaurantDashboard() {
             <p className="mt-1 text-sm text-slate-500">
               {activeProduct.name} · {activeProduct.origin_country}
             </p>
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Evidence summary
+              </p>
+              <p className="mt-2 text-sm text-slate-700">
+                {activeProductDetail?.evidence_notes ||
+                  'No evidence notes available yet.'}
+              </p>
+              <div className="mt-3">
+                <p className="text-xs uppercase tracking-wide text-slate-400">
+                  Evidence URL
+                </p>
+                {activeProductDetail?.evidence_url ? (
+                  <a
+                    href={activeProductDetail.evidence_url}
+                    className="mt-1 inline-flex text-sm font-medium text-emerald-700 hover:underline"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {activeProductDetail.evidence_url}
+                  </a>
+                ) : (
+                  <p className="mt-1 text-sm text-slate-500">
+                    No evidence URL provided.
+                  </p>
+                )}
+              </div>
+              <div className="mt-3">
+                <p className="text-xs uppercase tracking-wide text-slate-400">
+                  Verification notes
+                </p>
+                <p className="mt-1 text-sm text-slate-700">
+                  {activeProductDetail?.verification_notes ||
+                    'No verification notes recorded yet.'}
+                </p>
+              </div>
+            </div>
             <div className="mt-4 space-y-3">
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Allowed claims
+              </p>
               {claimOptions.map((claim) => (
                 <label key={claim.id} className="flex items-center gap-3 text-sm">
                   <input
@@ -173,7 +222,10 @@ export default function RestaurantDashboard() {
             <div className="mt-6 flex justify-end gap-3">
               <button
                 className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
-                onClick={() => setActiveProduct(null)}
+                onClick={() => {
+                  setActiveProduct(null);
+                  setActiveProductDetail(null);
+                }}
               >
                 Cancel
               </button>

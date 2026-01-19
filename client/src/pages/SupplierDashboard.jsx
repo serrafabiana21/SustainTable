@@ -20,7 +20,9 @@ export default function SupplierDashboard() {
     producer_name: '',
     certifications: '',
     co2_per_kg: '',
-    production_method: ''
+    production_method: '',
+    evidence_notes: '',
+    evidence_url: ''
   });
 
   const loadProducts = async () => {
@@ -59,7 +61,9 @@ export default function SupplierDashboard() {
         producer_name: '',
         certifications: '',
         co2_per_kg: '',
-        production_method: ''
+        production_method: '',
+        evidence_notes: '',
+        evidence_url: ''
       });
       await loadProducts();
     } catch (err) {
@@ -74,10 +78,30 @@ export default function SupplierDashboard() {
         await apiFetch(`/api/supplier/products/${id}/submit`, { method: 'POST' });
       }
       if (action === 'verify') {
-        await apiFetch(`/api/admin/products/${id}/verify`, { method: 'POST' });
+        const verification_notes = window.prompt(
+          'Add verification notes for this product (required).'
+        );
+        if (!verification_notes || !verification_notes.trim()) {
+          setError('Verification notes are required to verify a product.');
+          return;
+        }
+        await apiFetch(`/api/admin/products/${id}/verify`, {
+          method: 'POST',
+          body: JSON.stringify({ verification_notes })
+        });
       }
       if (action === 'reject') {
-        await apiFetch(`/api/admin/products/${id}/reject`, { method: 'POST' });
+        const verification_notes = window.prompt(
+          'Add verification notes for this product (required).'
+        );
+        if (!verification_notes || !verification_notes.trim()) {
+          setError('Verification notes are required to reject a product.');
+          return;
+        }
+        await apiFetch(`/api/admin/products/${id}/reject`, {
+          method: 'POST',
+          body: JSON.stringify({ verification_notes })
+        });
       }
       await loadProducts();
     } catch (err) {
@@ -162,6 +186,21 @@ export default function SupplierDashboard() {
             placeholder="Production method"
             className="rounded-xl border-slate-200 px-4 py-2 text-sm md:col-span-2"
             required
+          />
+          <textarea
+            name="evidence_notes"
+            value={form.evidence_notes}
+            onChange={handleChange}
+            placeholder="Evidence notes"
+            className="rounded-xl border-slate-200 px-4 py-2 text-sm md:col-span-2"
+            rows={3}
+          />
+          <input
+            name="evidence_url"
+            value={form.evidence_url}
+            onChange={handleChange}
+            placeholder="Evidence URL (optional)"
+            className="rounded-xl border-slate-200 px-4 py-2 text-sm md:col-span-2"
           />
           <button
             type="submit"

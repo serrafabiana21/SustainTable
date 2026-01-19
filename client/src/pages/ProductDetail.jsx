@@ -13,7 +13,7 @@ export default function ProductDetail() {
 
   const loadData = async () => {
     const [productData, auditData] = await Promise.all([
-      apiFetch(`/api/product/${id}`),
+      apiFetch(`/api/products/${id}`),
       apiFetch(`/api/audit/product/${id}`)
     ]);
     setProduct(productData.product);
@@ -102,6 +102,43 @@ export default function ProductDetail() {
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6">
+        <h3 className="text-lg font-semibold text-slate-900">Evidence</h3>
+        <div className="mt-4 space-y-3 text-sm text-slate-600">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-400">Evidence notes</p>
+            <p className="mt-1 text-sm text-slate-700">
+              {product.evidence_notes || 'No evidence notes provided yet.'}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              Evidence URL
+            </p>
+            {product.evidence_url ? (
+              <a
+                href={product.evidence_url}
+                className="mt-1 inline-flex text-sm font-medium text-emerald-700 hover:underline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {product.evidence_url}
+              </a>
+            ) : (
+              <p className="mt-1 text-sm text-slate-500">No evidence URL provided.</p>
+            )}
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              Verification notes
+            </p>
+            <p className="mt-1 text-sm text-slate-700">
+              {product.verification_notes || 'No verification notes recorded yet.'}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-6">
         <h3 className="text-lg font-semibold text-slate-900">Audit trail</h3>
         <div className="mt-4 space-y-3">
           {auditLogs.length === 0 && (
@@ -115,6 +152,11 @@ export default function ProductDetail() {
               <div>
                 <p className="text-sm font-semibold text-slate-900">{log.action}</p>
                 <p className="text-xs text-slate-500">Actor: {log.actor_email}</p>
+                {log.metadata?.verification_notes && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    Notes: {log.metadata.verification_notes}
+                  </p>
+                )}
               </div>
               <p className="text-xs text-slate-400">
                 {new Date(log.created_at).toLocaleString()}
