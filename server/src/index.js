@@ -96,13 +96,15 @@ app.post('/api/supplier/products', requireAuth(['SUPPLIER']), (req, res) => {
     producer_name,
     certifications,
     co2_per_kg,
-    production_method
+    production_method,
+    evidence_notes,
+    evidence_url
   } = req.body;
 
   const result = db.prepare(
     `INSERT INTO products
-      (supplier_id, name, category, origin_country, producer_name, certifications_json, co2_per_kg, production_method, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      (supplier_id, name, category, origin_country, producer_name, certifications_json, co2_per_kg, production_method, evidence_url, evidence_notes, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     supplier.id,
     name,
@@ -112,6 +114,8 @@ app.post('/api/supplier/products', requireAuth(['SUPPLIER']), (req, res) => {
     JSON.stringify(certifications || []),
     co2_per_kg,
     production_method,
+    evidence_url || '',
+    evidence_notes || '',
     'DRAFT'
   );
 
@@ -139,8 +143,19 @@ app.post('/api/admin/products/:id/verify', requireAuth(['SUPPLIER', 'ADMIN']), (
   if (product.status === 'VERIFIED') {
     return res.status(400).json({ message: 'Already verified' });
   }
-  db.prepare('UPDATE products SET status = ? WHERE id = ?').run('VERIFIED', product.id);
-  logAudit(req.user.id, 'VERIFIED', 'product', product.id, { status: 'VERIFIED' });
+  const { verification_notes } = req.body;
+  if (!verification_notes || !verification_notes.trim()) {
+    return res.status(400).json({ message: 'Verification notes are required' });
+  }
+  db.prepare('UPDATE products SET status = ?, verification_notes = ? WHERE id = ?').run(
+    'VERIFIED',
+    verification_notes.trim(),
+    product.id
+  );
+  logAudit(req.user.id, 'VERIFIED', 'product', product.id, {
+    status: 'VERIFIED',
+    verification_notes: verification_notes.trim()
+  });
   return res.json({ status: 'VERIFIED' });
 });
 
@@ -152,8 +167,19 @@ app.post('/api/admin/products/:id/reject', requireAuth(['SUPPLIER', 'ADMIN']), (
   if (product.status === 'VERIFIED') {
     return res.status(400).json({ message: 'Verified products cannot be rejected' });
   }
-  db.prepare('UPDATE products SET status = ? WHERE id = ?').run('REJECTED', product.id);
-  logAudit(req.user.id, 'REJECTED', 'product', product.id, { status: 'REJECTED' });
+  const { verification_notes } = req.body;
+  if (!verification_notes || !verification_notes.trim()) {
+    return res.status(400).json({ message: 'Verification notes are required' });
+  }
+  db.prepare('UPDATE products SET status = ?, verification_notes = ? WHERE id = ?').run(
+    'REJECTED',
+    verification_notes.trim(),
+    product.id
+  );
+  logAudit(req.user.id, 'REJECTED', 'product', product.id, {
+    status: 'REJECTED',
+    verification_notes: verification_notes.trim()
+  });
   return res.json({ status: 'REJECTED' });
 });
 
@@ -252,6 +278,36 @@ app.get('/api/audit/:entityType/:entityId', requireAuth(['SUPPLIER', 'RESTAURANT
 });
 
 app.get('/api/product/:id', requireAuth(['SUPPLIER', 'RESTAURANT', 'ADMIN']), (req, res) => {
+  const product = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
+  if (!product) {
+    return res.status(404).json({ message: 'Product not found' });
+  }
+
+  const supplier = db.prepare('SELECT * FROM suppliers WHERE id = ?').get(product.supplier_id);
+  const selection = db
+    .prepare(
+      `SELECT * FROM restaurant_products
+       JOIN restaurants ON restaurant_products.restaurant_id = restaurants.id
+       WHERE restaurant_products.product_id = ? AND restaurants.user_id = ?`
+    )
+    .get(product.id, req.user.id);
+
+  return res.json({
+    product: {
+      ...product,
+      certifications: JSON.parse(product.certifications_json || '[]')
+    },
+    supplier,
+    selection: selection
+      ? {
+          ...selection,
+          approved_claims: JSON.parse(selection.approved_claims_json || '[]')
+        }
+      : null
+  });
+});
+
+app.get('/api/products/:id', requireAuth(['SUPPLIER', 'RESTAURANT', 'ADMIN']), (req, res) => {
   const product = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
   if (!product) {
     return res.status(404).json({ message: 'Product not found' });

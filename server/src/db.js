@@ -42,6 +42,9 @@ db.exec(`
     certifications_json TEXT NOT NULL,
     co2_per_kg REAL NOT NULL,
     production_method TEXT NOT NULL,
+    evidence_url TEXT,
+    evidence_notes TEXT,
+    verification_notes TEXT,
     status TEXT NOT NULL,
     FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
   );
@@ -84,8 +87,8 @@ const seed = () => {
   );
   const insertProduct = db.prepare(
     `INSERT INTO products
-      (supplier_id, name, category, origin_country, producer_name, certifications_json, co2_per_kg, production_method, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      (supplier_id, name, category, origin_country, producer_name, certifications_json, co2_per_kg, production_method, evidence_url, evidence_notes, verification_notes, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
 
   const supplierUser = insertUser.run(
@@ -113,6 +116,9 @@ const seed = () => {
     certifications,
     1.2,
     'Regenerative',
+    'https://example.com/evidence/arctic-root-vegetables',
+    'Farm audit report and traceability documents from 2023 harvest.',
+    'Verified against supplier-provided audit and certificate copies.',
     'VERIFIED'
   );
 
@@ -125,10 +131,31 @@ const seed = () => {
     JSON.stringify(['Fair Trade']),
     2.4,
     'Low-energy smokehouse',
+    '',
+    'Smokehouse energy logs and supplier notes pending review.',
+    '',
     'DRAFT'
   );
 };
 
+const ensureProductColumns = () => {
+  const columns = db
+    .prepare('PRAGMA table_info(products)')
+    .all()
+    .map((column) => column.name);
+
+  if (!columns.includes('evidence_url')) {
+    db.exec('ALTER TABLE products ADD COLUMN evidence_url TEXT');
+  }
+  if (!columns.includes('evidence_notes')) {
+    db.exec('ALTER TABLE products ADD COLUMN evidence_notes TEXT');
+  }
+  if (!columns.includes('verification_notes')) {
+    db.exec('ALTER TABLE products ADD COLUMN verification_notes TEXT');
+  }
+};
+
+ensureProductColumns();
 seed();
 
 export default db;
